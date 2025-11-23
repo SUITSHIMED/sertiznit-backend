@@ -1,121 +1,101 @@
-const express = require('express');
-const cors = require('cors');
+import express from "express";
+import { Pool } from "pg";
+
 const app = express();
-const port = 3000;
+const PORT = 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
 
-// Database connection - UPDATE THESE WITH YOUR INFO!
-const { Pool } = require('pg');
 const pool = new Pool({
-  user: 'postgres',        // Your PostgreSQL username
-  host: 'localhost',
-  database: 'sertiznit',    // Your database name
-  password: '0000', // Your PostgreSQL password
+  user: "postgres",
+  host: "localhost",
+  database: "sertiznit",
+  password: "0000",
   port: 5432,
 });
 
-// ===== ROUTES START HERE =====
 
-// 1. Test route
-app.get('/', (req, res) => {
-  res.json({ message: 'Artisans API is working!' });
-});
+app.use(express.json());
 
-// 2. GET all artisans
-app.get('/artisans', async (req, res) => {
+
+app.get("/artisans", async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM artisans ORDER BY id');
+    const result = await pool.query("SELECT * FROM artisans");
     res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (error) {
+    res.status(500).json({ message: "Error getting artisans" });
   }
 });
 
-// 3. GET one artisan by ID
-app.get('/artisans/:id', async (req, res) => {
+//kanjib
+app.get("/artisans/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const result = await pool.query('SELECT * FROM artisans WHERE id = $1', [id]);
-    
+    const result = await pool.query("SELECT * FROM artisans WHERE id = $1", [
+      req.params.id,
+    ]);
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Artisan not found' });
+      return res.status(404).json({ message: "Artisan not found" });
     }
-    
+
     res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+  } catch (error) {
+    res.status(500).json({ message: "Error getting artisan" });
   }
 });
 
-// 4. POST - Add new artisan
-app.post('/artisans', async (req, res) => {
+
+app.post("/artisans", async (req, res) => {
+  const { nom, prenom, profession, telephone, ville } = req.body;
+
   try {
-    const { nom, prenom, profession, telephone, ville = 'Tiznit' } = req.body;
-    
     const result = await pool.query(
-      'INSERT INTO artisans (nom, prenom, profession, telephone, ville) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      "INSERT INTO artisans (nom, prenom, profession, telephone, ville) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [nom, prenom, profession, telephone, ville]
     );
-    
-    res.json({ success: true, artisan: result.rows[0] });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to add artisan' });
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: "Error creating artisan" });
   }
 });
 
-// 5. PUT - Update artisan
-app.put('/artisans/:id', async (req, res) => {
+
+app.put("/artisans/:id", async (req, res) => {
+  const { nom, prenom, profession, telephone, ville } = req.body;
+
   try {
-    const { id } = req.params;
-    const { nom, prenom, profession, telephone, ville } = req.body;
-    
     const result = await pool.query(
-      'UPDATE artisans SET nom=$1, prenom=$2, profession=$3, telephone=$4, ville=$5 WHERE id=$6 RETURNING *',
-      [nom, prenom, profession, telephone, ville, id]
+      "UPDATE artisans SET nom=$1, prenom=$2, profession=$3, telephone=$4, ville=$5 WHERE id=$6 RETURNING *",
+      [nom, prenom, profession, telephone, ville, req.params.id]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Artisan not found' });
+      return res.status(404).json({ message: "Artisan not found" });
     }
-    
-    res.json({ success: true, artisan: result.rows[0] });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to update artisan' });
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating artisan" });
   }
 });
 
-// 6. DELETE - Remove artisan
-app.delete('/artisans/:id', async (req, res) => {
+
+app.delete("/artisans/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    const result = await pool.query('DELETE FROM artisans WHERE id = $1 RETURNING *', [id]);
-    
+    const result = await pool.query(
+      "DELETE FROM artisans WHERE id=$1 RETURNING id",
+      [req.params.id]
+    );
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Artisan not found' });
+      return res.status(404).json({ message: "Artisan not found" });
     }
-    
-    res.json({ success: true, message: 'Artisan deleted', artisan: result.rows[0] });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to delete artisan' });
+
+    res.json({ message: "Artisan deleted" });
+  } catch (error) {
+    res.status(500).json({ message: "Error deleting artisan" });
   }
 });
 
-// ===== SERVER START =====
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-  console.log('Available endpoints:');
-  console.log(`  GET    http://localhost:${port}/artisans`);
-  console.log(`  GET    http://localhost:${port}/artisans/1`);
-  console.log(`  POST   http://localhost:${port}/artisans`);
-  console.log(`  PUT    http://localhost:${port}/artisans/1`);
-  console.log(`  DELETE http://localhost:${port}/artisans/1`);
-});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
